@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitive Definition
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'onboardingDate', 'updatedAt'])
+        && data.keys().size() == 3
+        && data.email is string
+        && data.email.size() >= 3 && data.email.size() <= 255
+        && data.onboardingDate == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function isValidUserUpdate(data, existingData) {
+      return data.email is string
+        && data.email.size() >= 3 && data.email.size() <= 255
+        && data.onboardingDate == existingData.onboardingDate
+        && data.updatedAt == request.time;
+    }
+
+    function isValidDateString(dateString) { return dateString is string && dateString.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); }
+
+    function isValidTelemetry(data, userId, dateString) {
+      return data.keys().hasAll(['userId', 'date', 'dateString', 'wakingFriction', 'alcoholConsumed', 'sugarMixers', 'sleepUnder6Hours', 'warmUpLatencyMins', 'updatedAt'])
+        && data.keys().size() == 9
+        && data.userId == userId
+        && data.date is timestamp
+        && data.dateString == dateString
+        && data.wakingFriction is number && data.wakingFriction >= 1 && data.wakingFriction <= 5
+        && data.alcoholConsumed is bool
+        && data.sugarMixers is bool
+        && data.sleepUnder6Hours is bool
+        && data.warmUpLatencyMins is number && data.warmUpLatencyMins >= 0 && data.warmUpLatencyMins <= 300
+        && data.updatedAt == request.time;
+    }
+
+    function isValidTelemetryUpdate(data, existingData, userId, dateString) {
+      return data.userId == existingData.userId
+        && data.date == existingData.date
+        && data.dateString == existingData.dateString
+        && data.wakingFriction is number && data.wakingFriction >= 1 && data.wakingFriction <= 5
+        && data.alcoholConsumed is bool
+        && data.sugarMixers is bool
+        && data.sleepUnder6Hours is bool
+        && data.warmUpLatencyMins is number && data.warmUpLatencyMins >= 0 && data.warmUpLatencyMins <= 300
+        && data.updatedAt == request.time;
+    }
+
+    function isValidYield(data, userId, dateString) {
+      return data.keys().hasAll(['userId', 'date', 'dateString', 'primaryLiftName', 'topWeight', 'topReps', 'perceivedExertionRPE', 'updatedAt'])
+        && data.keys().size() == 8
+        && data.userId == userId
+        && data.date is timestamp
+        && data.dateString == dateString
+        && data.primaryLiftName is string && data.primaryLiftName.size() > 0 && data.primaryLiftName.size() <= 100
+        && data.topWeight is number && data.topWeight >= 0 && data.topWeight <= 2000
+        && data.topReps is number && data.topReps >= 0 && data.topReps <= 200
+        && data.perceivedExertionRPE is number && data.perceivedExertionRPE >= 1 && data.perceivedExertionRPE <= 10
+        && data.updatedAt == request.time;
+    }
+
+    function isValidYieldUpdate(data, existingData, userId, dateString) {
+      return data.userId == existingData.userId
+        && data.date == existingData.date
+        && data.dateString == existingData.dateString
+        && data.primaryLiftName is string && data.primaryLiftName.size() > 0 && data.primaryLiftName.size() <= 100
+        && data.topWeight is number && data.topWeight >= 0 && data.topWeight <= 2000
+        && data.topReps is number && data.topReps >= 0 && data.topReps <= 200
+        && data.perceivedExertionRPE is number && data.perceivedExertionRPE >= 1 && data.perceivedExertionRPE <= 10
+        && data.updatedAt == request.time;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false; 
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUserUpdate(incoming(), existing()) && incoming().diff(existing()).affectedKeys().hasOnly(['updatedAt', 'email']);
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /daily_telemetry/{dateString} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidDateString(dateString);
+        allow list: if isOwner(userId) && isValidId(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidDateString(dateString) && isValidTelemetry(incoming(), userId, dateString);
+        allow update: if isOwner(userId) && isValidId(userId) && isValidDateString(dateString) && isValidTelemetryUpdate(incoming(), existing(), userId, dateString) && incoming().diff(existing()).affectedKeys().hasOnly(['wakingFriction', 'alcoholConsumed', 'sugarMixers', 'sleepUnder6Hours', 'warmUpLatencyMins', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidDateString(dateString);
+      }
+
+      match /performance_yield/{dateString} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidDateString(dateString);
+        allow list: if isOwner(userId) && isValidId(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidDateString(dateString) && isValidYield(incoming(), userId, dateString);
+        allow update: if isOwner(userId) && isValidId(userId) && isValidDateString(dateString) && isValidYieldUpdate(incoming(), existing(), userId, dateString) && incoming().diff(existing()).affectedKeys().hasOnly(['primaryLiftName', 'topWeight', 'topReps', 'perceivedExertionRPE', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidDateString(dateString);
+      }
+    }
+  }
+}

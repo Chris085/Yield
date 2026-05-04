@@ -1,0 +1,62 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "onboardingDate": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["email", "onboardingDate", "updatedAt"]
+    },
+    "DailyTelemetry": {
+      "title": "Daily Telemetry",
+      "description": "Daily input log.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "date": { "type": "string", "description": "Timestamp" },
+        "dateString": { "type": "string", "description": "YYYY-MM-DD" },
+        "wakingFriction": { "type": "number", "description": "1 to 5" },
+        "alcoholConsumed": { "type": "boolean" },
+        "sugarMixers": { "type": "boolean" },
+        "sleepUnder6Hours": { "type": "boolean" },
+        "warmUpLatencyMins": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "date", "dateString", "wakingFriction", "alcoholConsumed", "sugarMixers", "sleepUnder6Hours", "warmUpLatencyMins", "updatedAt"]
+    },
+    "PerformanceYield": {
+      "title": "Performance Yield",
+      "description": "Workout performance log.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "dateString": { "type": "string" },
+        "primaryLiftName": { "type": "string" },
+        "topWeight": { "type": "number" },
+        "topReps": { "type": "number" },
+        "perceivedExertionRPE": { "type": "number", "description": "1 to 10" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "date", "dateString", "primaryLiftName", "topWeight", "topReps", "perceivedExertionRPE", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profile data."
+    },
+    "users/{userId}/daily_telemetry/{dateString}": {
+      "schema": "DailyTelemetry",
+      "description": "Telemetry logs, indexed safely by Date."
+    },
+    "users/{userId}/performance_yield/{dateString}": {
+      "schema": "PerformanceYield",
+      "description": "Performance logs, indexed safely by Date."
+    }
+  }
+}
